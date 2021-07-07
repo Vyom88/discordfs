@@ -33,6 +33,7 @@ logging.basicConfig(
     filename='out.log',
     level=logging.DEBUG)
 
+logging.getLogger('asyncio').setLevel(logging.WARNING)
 
 bot = commands.Bot(command_prefix='fs!', intents=discord.Intents.all())
 slash = SlashCommand(bot, sync_commands=True)
@@ -105,7 +106,10 @@ async def _all(ctx: SlashContext, dm: bool = False):
     if not res:
         await ctx.send(PLZ_VERIFY)
         return
-    files = await fall(ctx, ag_client, bot)
+    try:
+        files = await fall(ctx, ag_client, bot)
+    except BaseException as e:
+        print(e)
     if isinstance(files, str):
         await ctx.send(files, hidden=True)
         return
@@ -243,10 +247,8 @@ async def _search(ctx: SlashContext,
         await ctx.send(content=files, hidden=True)
         return
     if dm:
-        await ctx.author.send(f"Found {len(files)} file{'s' if len(files) > 1 else ''}")
         await send_files_as_message(ctx.author, files)
     else:
-        await ctx.send(f"Found {len(files)} file{'s' if len(files) > 1 else ''}")
         await send_files_as_message(ctx, files)
 
 
@@ -279,7 +281,12 @@ async def _delete(ctx, filename):
     if not res:
         await ctx.send(PLZ_VERIFY)
         return
-    deleted_files = await fdelete(ctx, filename, ag_client, mg_client, bot)
+    print("Attempting to delete")
+    try:
+        deleted_files = await fdelete(ctx, filename, ag_client, mg_client, bot)
+    except BaseException as e:
+        print(e)
+
     if isinstance(deleted_files, str):
         await ctx.send(content=deleted_files, hidden=True)
         return
@@ -559,7 +566,5 @@ async def send_files_as_message(author: discord.User or SlashContext,
     async for file in download(files, mg_client):
         await author.send(file=file)
         file.close()
-try:
-    bot.run(TOKEN)
-except BaseException as e:
-    print(e)
+
+bot.run(TOKEN)

@@ -4,6 +4,8 @@ from algoliasearch.exceptions import RequestException
 from config import CONFIG
 from search_client import AsyncSearchClient
 from typing import List, Dict
+import traceback
+import sys
 
 
 class AlgoliaClient(AsyncSearchClient):
@@ -52,17 +54,17 @@ class AlgoliaClient(AsyncSearchClient):
         Returns:
             Search results.
         """
-        index = self.search_client.init_index(
-            CONFIG.DB_NAME + '_' + str(serv_id))
-        filters = self.create_filter(**kwargs)
-        try:
-            res = await index.search_async(filename, {
-                "advancedSyntax": True,
-                "filters": filters
-            })
-        except RequestException as err:
-            return []
-        return res["hits"]
+        async with self.search_client as client:
+            index = client.init_index(CONFIG.DB_NAME + '_' + str(serv_id))
+            filters = self.create_filter(**kwargs)
+            try:
+                res = await index.search_async(filename, {
+                    "advancedSyntax": True,
+                    "filters": filters
+                })
+            except RequestException:
+                return []
+            return res["hits"]
 
     async def create_doc(self, meta_dict: dict, serv_id: int, author: str) -> bool:
         """
@@ -75,15 +77,15 @@ class AlgoliaClient(AsyncSearchClient):
         Returns:
             Whether the operation was executed.
         """
-        index = self.admin_client.init_index(
-            CONFIG.DB_NAME + '_' + str(serv_id))
-        res = await index.save_object_async(meta_dict, {
-            "autoGenerateObjectIDIfNotExist": False,
-            "X-Algolia-UserToken": author
-        })
-        return bool(res)
+        async with self.admin_client as client:
+            index = client.init_index(CONFIG.DB_NAME + '_' + str(serv_id))
+            res = await index.save_object_async(meta_dict, {
+                "autoGenerateObjectIDIfNotExist": False,
+                "X-Algolia-UserToken": author
+            })
+            return bool(res)
 
-    async def remove_doc(self, filename: str, serv_id: int, author: str, **kwargs) -> bool:
+    async def remove_doc(self, ids: List[int], serv_id: int, author: str, **kwargs) -> bool:
         """
         Remove docs.
 
@@ -95,14 +97,12 @@ class AlgoliaClient(AsyncSearchClient):
         Returns:
             Whether the remove operation succeeded.
         """
-        docs = await self.search(filename, **kwargs)
-        ids = [doc["objectID"] for doc in docs]
-        index = self.admin_client.init_index(
-            CONFIG.DB_NAME + '_' + str(serv_id))
-        res = index.delete_objects_async(ids, {
-            "X-Algolia-UserToken": author
-        })
-        return bool(res)
+        async with self.admin_client as client:
+            index = client.init_index(CONFIG.DB_NAME + '_' + str(serv_id))
+            res = await index.delete_objects_async(ids, {
+                "X-Algolia-UserToken": author
+            })
+            return res
 
     async def get_all_docs(self, serv_id: int) -> List[Dict]:
         """Retrieve all docs in an index."""
@@ -116,9 +116,9 @@ class AlgoliaClient(AsyncSearchClient):
 
     async def clear(self, serv_id: int):
         """Clear an index."""
-        index = self.admin_client.init_index(
-            CONFIG.DB_NAME + '_' + str(serv_id))
-        res = await index.clear_objects_async()
+        async with self.admin_client as client:
+            index = client.init_index(CONFIG.DB_NAME + '_' + str(serv_id))
+            await index.clear_objects_async()
 
 
 if __name__ == "__main__":
