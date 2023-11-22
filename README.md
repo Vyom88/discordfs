@@ -45,3 +45,4 @@ You can narrow your search by specifying options!
 </details>
 
 Plz let me know if you encounter bugs! Feel free to create an issue on this repo, message me at `dhrumilp15#4369` OR post in the server: (https://discord.gg/cp6Wv3peec)!
+
